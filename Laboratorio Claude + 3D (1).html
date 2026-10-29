@@ -1,0 +1,846 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Laboratorio Claude + 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: plano técnico — cuadrícula azul de 24px, paneles rotulados como láminas, cotas y etiquetas de esquina */
+:root{
+  --bg:#0A1A2F; --bg-2:#0C2038; --panel:#0F2645; --panel-2:#13305A; --line:#29507F; --line-soft:rgba(124,196,255,.18);
+  --grid:rgba(124,196,255,.06); --grid-major:rgba(124,196,255,.12);
+  --ink:#EAF1FA; --muted:#A3B8D4; --dim:#7690B2;
+  --coral:#FF7A59; --amber:#FFC857; --mint:#5FE0B4; --sky:#7CC4FF;
+  --display:"Archivo","Arial Narrow",Arial,sans-serif;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{
+  margin:0;background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;
+  background-image:
+    linear-gradient(var(--grid-major) 1px,transparent 1px),linear-gradient(90deg,var(--grid-major) 1px,transparent 1px),
+    linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:120px 120px,120px 120px,24px 24px,24px 24px;
+  background-attachment:fixed;
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.05}
+p{margin:0}
+a{color:var(--sky)}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* Header */
+.top{padding-block:28px 0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky)}
+.top h1{font-size:clamp(34px,6vw,64px);font-weight:850;font-stretch:125%;letter-spacing:-.01em;margin-top:8px}
+.top h1 em{font-style:normal;color:var(--coral)}
+.top .lede{max-width:62ch;color:var(--muted);margin-top:10px;font-size:17px}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:rgba(10,26,47,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);margin-top:24px}
+.tabs .wrap{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.tab{appearance:none;border:0;background:none;padding:14px 16px 12px;display:flex;align-items:baseline;gap:10px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap;font-family:var(--display);font-weight:650;font-size:16px}
+.tab b{font-family:var(--mono);font-weight:600;font-size:12px;color:var(--dim)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--coral)}
+.tab[aria-selected="true"] b{color:var(--coral)}
+.tab:hover{color:var(--ink)}
+
+main{padding-block:28px 64px}
+.sheet{display:grid;gap:22px}
+.sheet-head{display:grid;gap:8px;max-width:72ch}
+.sheet-head h2{font-size:clamp(26px,3.6vw,40px);font-weight:800;font-stretch:115%}
+.sheet-head p{color:var(--muted)}
+
+/* Panels: drawn like plan sheets with corner tick marks */
+.panel{position:relative;background:linear-gradient(180deg,rgba(19,48,90,.55),rgba(15,38,69,.75));border:1px solid var(--line);border-radius:4px;padding:20px;min-width:0}
+.panel::before,.panel::after{content:"";position:absolute;width:10px;height:10px;border-color:var(--sky);border-style:solid;opacity:.7}
+.panel::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.panel::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.label{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:22px;align-items:start}
+@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
+
+/* Chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{appearance:none;border:1px solid var(--line);background:var(--bg-2);border-radius:999px;padding:7px 14px;cursor:pointer;font-size:14.5px;color:var(--muted);transition:background .15s,color .15s,border-color .15s}
+.chip:hover{color:var(--ink);border-color:var(--sky)}
+.chip[aria-pressed="true"]{background:var(--coral);border-color:var(--coral);color:#1B0F0A;font-weight:700}
+
+/* Form */
+.field{display:grid;gap:6px}
+.field + .field{margin-top:14px}
+.field label{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.field label span:first-child{font-family:var(--display);font-weight:700;font-size:15px;font-stretch:110%}
+.field label .hint{font-size:13px;color:var(--dim)}
+textarea,input[type=text],input[type=number]{width:100%;background:rgba(6,18,34,.7);border:1px solid var(--line);border-radius:3px;padding:10px 12px;font-size:15px;line-height:1.45;resize:vertical}
+textarea:focus,input:focus{border-color:var(--sky);outline:none;box-shadow:0 0 0 3px rgba(124,196,255,.18)}
+.toggles{display:grid;gap:8px;margin-top:16px}
+.toggle{display:flex;gap:10px;align-items:flex-start;font-size:15px;cursor:pointer;color:var(--muted)}
+.toggle input{accent-color:var(--coral);width:18px;height:18px;margin-top:2px;flex:none}
+
+/* Prompt output */
+.out-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.meter{display:flex;align-items:center;gap:12px}
+.meter svg{width:58px;height:58px;flex:none}
+.meter .score{font-family:var(--display);font-weight:850;font-size:22px;font-variant-numeric:tabular-nums}
+.meter .verdict{font-size:13.5px;color:var(--muted);max-width:22ch;line-height:1.3}
+.prompt{font-family:var(--mono);font-size:13.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;background:rgba(4,12,24,.85);border:1px solid var(--line);border-radius:3px;padding:16px;min-height:260px;max-height:520px;overflow:auto;margin:0}
+.prompt .t{color:var(--amber)}
+.prompt .x{color:var(--mint)}
+.btn{appearance:none;border:1px solid var(--sky);background:transparent;color:var(--ink);border-radius:3px;padding:9px 14px;cursor:pointer;font-family:var(--display);font-weight:700;font-size:14.5px;font-stretch:110%;display:inline-flex;gap:8px;align-items:center}
+.btn:hover{background:rgba(124,196,255,.12)}
+.btn.primary{background:var(--coral);border-color:var(--coral);color:#1B0F0A}
+.btn.primary:hover{background:#FF9273}
+.btn.ghost{border-color:var(--line);color:var(--muted)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.tips{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:6px;font-size:14.5px;color:var(--muted)}
+.tips li{display:flex;gap:8px}
+.tips li::before{content:"→";color:var(--amber);font-family:var(--mono)}
+.tips li.ok::before{content:"✓";color:var(--mint)}
+
+/* Context sim */
+.ctl{display:flex;flex-wrap:wrap;gap:8px}
+.ctx-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:900px){.ctx-grid{grid-template-columns:minmax(0,1fr)}}
+.window{border:1px dashed var(--sky);border-radius:3px;padding:12px;min-height:280px;max-height:360px;overflow:auto;display:flex;flex-direction:column;gap:6px;background:rgba(4,12,24,.55)}
+.window .empty{color:var(--dim);font-size:14.5px;margin:auto;text-align:center;max-width:32ch}
+.blk{border-radius:3px;padding:6px 10px;font-size:13.5px;display:flex;justify-content:space-between;gap:12px;animation:drop .35s ease-out both}
+.blk span:last-child{font-family:var(--mono);font-size:12px;white-space:nowrap;opacity:.85}
+.blk.user{background:rgba(124,196,255,.16);border:1px solid rgba(124,196,255,.4);align-self:flex-end;max-width:85%}
+.blk.claude{background:rgba(255,122,89,.13);border:1px solid rgba(255,122,89,.4);max-width:92%}
+.blk.pdf{background:rgba(255,200,87,.14);border:1px solid rgba(255,200,87,.5)}
+.blk.fix{background:rgba(124,196,255,.08);border:1px dashed rgba(124,196,255,.5);align-self:flex-end;max-width:85%}
+.blk.reread{box-shadow:0 0 0 2px rgba(255,200,87,.55)}
+@keyframes drop{from{transform:translateY(-6px);opacity:.3}to{transform:none;opacity:1}}
+.shelf{margin-top:10px;display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:8px 10px;background:rgba(95,224,180,.06)}
+.shelf.on{border-color:var(--mint);color:var(--ink)}
+.shelf .dot{width:10px;height:10px;border-radius:50%;background:var(--dim);flex:none}
+.shelf.on .dot{background:var(--mint)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.stats{grid-template-columns:minmax(0,1fr)}}
+.stat{border:1px solid var(--line);border-radius:3px;padding:12px;background:rgba(4,12,24,.5);min-width:0}
+.stat .v{font-family:var(--display);font-weight:850;font-size:26px;font-stretch:110%;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px}
+.stat .s{font-size:12.5px;color:var(--dim)}
+.budget{margin-top:12px}
+.bar{height:12px;border-radius:2px;background:rgba(124,196,255,.12);overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--mint),var(--amber) 60%,var(--coral));transition:width .5s ease}
+.turns svg{width:100%;height:120px;display:block}
+.note{font-size:13px;color:var(--dim);font-style:italic}
+.compare-out{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:22px;align-items:center}
+@media (max-width:820px){.compare-out{grid-template-columns:minmax(0,1fr)}}
+.chart-box{overflow-x:auto}
+.chart-box svg{width:100%;min-width:420px;height:auto;display:block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:6px}
+.big{font-family:var(--display);font-weight:900;font-stretch:125%;font-size:clamp(40px,7vw,72px);line-height:.95;color:var(--amber);font-variant-numeric:tabular-nums}
+.recipe{display:grid;gap:8px;margin-top:14px;padding:0;list-style:none;counter-reset:r}
+.recipe li{counter-increment:r;display:flex;gap:10px;font-size:15px}
+.recipe li::before{content:counter(r);font-family:var(--mono);font-size:12px;color:#1B0F0A;background:var(--mint);border-radius:50%;width:20px;height:20px;display:grid;place-items:center;flex:none;margin-top:2px}
+
+/* Hours calc */
+.rows{display:grid;gap:10px}
+.row{display:grid;grid-template-columns:minmax(0,2.2fr) 110px minmax(0,1.6fr) 96px 34px;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:3px;background:rgba(4,12,24,.45)}
+.row .pct{display:flex;align-items:center;gap:10px}
+.row .pct input{flex:1;accent-color:var(--coral);min-width:0}
+.row .pct output{font-family:var(--mono);font-size:13px;width:3.2em;text-align:right}
+.row .saved{font-family:var(--mono);font-size:13.5px;text-align:right;color:var(--mint)}
+.row .x{appearance:none;border:0;background:none;color:var(--dim);cursor:pointer;font-size:18px;line-height:1}
+.row .x:hover{color:var(--coral)}
+.row-head{display:grid;grid-template-columns:minmax(0,2.2fr) 110px minmax(0,1.6fr) 96px 34px;gap:12px;padding:0 12px}
+@media (max-width:760px){
+  .row,.row-head{grid-template-columns:minmax(0,1fr) 92px}
+  .row .pct{grid-column:1 / -1}
+  .row .saved{grid-column:1}
+  .row .x{grid-column:2;justify-self:end}
+  .row-head span:nth-child(n+3){display:none}
+}
+.hours-sum{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:end}
+@media (max-width:760px){.hours-sum{grid-template-columns:minmax(0,1fr)}}
+.hbars{display:grid;gap:8px}
+.hbar{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:10px;align-items:center;font-size:13.5px}
+.hbar .track{grid-column:1 / -1;height:8px;background:rgba(124,196,255,.1);border-radius:2px;overflow:hidden}
+.hbar .track i{display:block;height:100%;background:var(--mint);transition:width .4s ease}
+.hbar span:nth-child(2){text-align:right;font-family:var(--mono);color:var(--muted)}
+
+/* 3D */
+.stage-wrap{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:22px;align-items:stretch}
+@media (max-width:900px){.stage-wrap{grid-template-columns:minmax(0,1fr)}}
+.viewport{position:relative;aspect-ratio:4/3;max-width:100%;border:1px solid var(--line);border-radius:3px;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#123462 0%,#0A1A2F 70%);touch-action:pan-y}
+.viewport canvas{display:block;width:100%;height:100%;cursor:grab}
+.viewport .hud{position:absolute;left:12px;top:10px;font-family:var(--mono);font-size:12px;color:var(--sky);letter-spacing:.08em;pointer-events:none}
+.viewport .files{position:absolute;right:12px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;opacity:0;transition:opacity .4s}
+.viewport .files.show{opacity:1}
+.viewport .files span{font-family:var(--mono);font-size:12px;background:rgba(10,26,47,.85);border:1px solid var(--mint);color:var(--mint);padding:4px 8px;border-radius:2px}
+.viewport .nogl{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);text-align:center;padding:20px}
+.steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:12px}
+.step{appearance:none;border:1px solid var(--line);background:var(--bg-2);border-radius:3px;padding:8px 6px;cursor:pointer;text-align:left;color:var(--muted);min-width:0}
+.step b{display:block;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.step span{display:block;font-family:var(--display);font-weight:700;font-size:14px;font-stretch:105%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.step[aria-current="true"]{border-color:var(--coral);color:var(--ink);background:rgba(255,122,89,.12)}
+.step[aria-current="true"] b{color:var(--coral)}
+.explain h3{font-size:26px;font-weight:800;font-stretch:115%}
+.explain p{color:var(--muted);margin-top:8px}
+.explain .tool-tip{margin-top:14px;font-size:14.5px;border-left:0;padding:10px 12px;background:rgba(255,200,87,.08);border:1px solid rgba(255,200,87,.35);border-radius:3px}
+.tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.tools{grid-template-columns:minmax(0,1fr)}}
+.tool{border:1px solid var(--line);border-radius:3px;padding:16px;background:rgba(4,12,24,.5);display:grid;gap:8px;align-content:start;animation:drop .3s ease-out both;min-width:0}
+.tool.best{border-color:var(--coral);background:rgba(255,122,89,.08)}
+.tool h4{margin:0;font-family:var(--display);font-size:19px;font-weight:800;font-stretch:110%}
+.tool .rank{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--coral)}
+.tool dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;font-size:14px}
+.tool dt{color:var(--dim)}
+.tool dd{margin:0}
+.tool .why{font-size:14px;color:var(--muted)}
+.warn{border:1px solid var(--amber);background:rgba(255,200,87,.08);border-radius:3px;padding:12px 14px;font-size:14.5px}
+.checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (max-width:620px){.checks{grid-template-columns:minmax(0,1fr)}}
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:3px;cursor:pointer;font-size:15px}
+.check input{accent-color:var(--mint);width:18px;height:18px;margin-top:2px;flex:none}
+.check:has(input:checked){border-color:var(--mint);background:rgba(95,224,180,.07)}
+.ready{display:flex;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap}
+.ready .bar{flex:1;min-width:160px}
+.ready .bar i{background:var(--mint)}
+.copybox{font-family:var(--mono);font-size:13px;white-space:pre-wrap;background:rgba(4,12,24,.85);border:1px solid var(--line);border-radius:3px;padding:14px;margin:10px 0 0}
+footer{border-top:1px solid var(--line);padding-block:20px 40px;color:var(--dim);font-size:13.5px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:#06231A;font-weight:700;padding:10px 16px;border-radius:3px;opacity:0;transition:.25s;pointer-events:none;z-index:40}
+.toast.show{opacity:1;transform:translateX(-50%)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Inteligencia artificial generativa · Clase práctica</div>
+    <h1>Laboratorio <em>Claude</em> + 3D</h1>
+    <p class="lede">Cuatro simulaciones para usar durante la clase: armar prompts que funcionan, entender por qué los chats largos gastan más, calcular cuánto tiempo te ahorra la IA y ver cómo una foto se convierte en un objeto 3D.</p>
+  </div>
+  <nav class="tabs" aria-label="Simulaciones">
+    <div class="wrap" role="tablist">
+      <button class="tab" role="tab" id="tab-prompts" aria-controls="prompts" aria-selected="true" data-tab="prompts"><b>01</b>Constructor de prompts</button>
+      <button class="tab" role="tab" id="tab-contexto" aria-controls="contexto" aria-selected="false" data-tab="contexto"><b>02</b>Medidor de contexto</button>
+      <button class="tab" role="tab" id="tab-horas" aria-controls="horas" aria-selected="false" data-tab="horas"><b>03</b>Horas ahorradas</button>
+      <button class="tab" role="tab" id="tab-3d" aria-controls="taller3d" aria-selected="false" data-tab="taller3d"><b>04</b>Taller 2D → 3D</button>
+    </div>
+  </nav>
+</header>
+
+<main class="wrap">
+
+<!-- 01 PROMPTS -->
+<section id="prompts" class="sheet" role="tabpanel" aria-labelledby="tab-prompts">
+  <div class="sheet-head">
+    <div class="label">Lámina 01 · Prompting para Claude</div>
+    <h2>Armá el prompt en seis piezas</h2>
+    <p>Elegí un caso de ejemplo o escribí el tuyo. El prompt se arma solo, con etiquetas que Claude lee muy bien, y el medidor te dice qué le falta.</p>
+  </div>
+  <div class="chips" id="presets" aria-label="Casos de ejemplo"></div>
+  <div class="cols">
+    <div class="panel">
+      <div class="field"><label for="f-rol"><span>Rol</span><span class="hint">¿Quién es Claude en esta tarea?</span></label><textarea id="f-rol" rows="2"></textarea></div>
+      <div class="field"><label for="f-contexto"><span>Contexto</span><span class="hint">Datos reales, situación, público</span></label><textarea id="f-contexto" rows="4"></textarea></div>
+      <div class="field"><label for="f-tarea"><span>Tarea</span><span class="hint">Un verbo claro</span></label><textarea id="f-tarea" rows="2"></textarea></div>
+      <div class="field"><label for="f-formato"><span>Formato</span><span class="hint">Largo, tono, estructura</span></label><textarea id="f-formato" rows="2"></textarea></div>
+      <div class="field"><label for="f-restr"><span>Restricciones</span><span class="hint">Qué no hacer</span></label><textarea id="f-restr" rows="2"></textarea></div>
+      <div class="field"><label for="f-ejemplo"><span>Ejemplo</span><span class="hint">Opcional, pero mejora mucho</span></label><textarea id="f-ejemplo" rows="2"></textarea></div>
+      <div class="toggles">
+        <label class="toggle"><input type="checkbox" id="t-xml" checked> Usar etiquetas &lt;xml&gt; para separar las partes</label>
+        <label class="toggle"><input type="checkbox" id="t-preg"> Pedirle que me haga preguntas antes de empezar</label>
+        <label class="toggle"><input type="checkbox" id="t-pensar"> Pedirle que piense paso a paso</label>
+        <label class="toggle"><input type="checkbox" id="t-revisar"> Pedirle que revise su respuesta antes de entregarla</label>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="out-head">
+        <div class="meter" aria-live="polite">
+          <svg viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="25" fill="none" stroke="rgba(124,196,255,.15)" stroke-width="6"/><circle id="ring" cx="30" cy="30" r="25" fill="none" stroke="#5FE0B4" stroke-width="6" stroke-linecap="round" stroke-dasharray="157" stroke-dashoffset="157" transform="rotate(-90 30 30)" style="transition:stroke-dashoffset .4s, stroke .4s"/></svg>
+          <div><div class="score" id="score">0</div><div class="verdict" id="verdict">Completá las piezas</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost" id="clear-prompt" type="button">Vaciar</button>
+          <button class="btn primary" id="copy-prompt" type="button">Copiar prompt</button>
+        </div>
+      </div>
+      <pre class="prompt" id="prompt-out" tabindex="0" aria-label="Prompt armado"></pre>
+      <ul class="tips" id="tips"></ul>
+      <p class="note" style="margin-top:12px">Pegalo en claude.ai. En el plan gratis funciona igual; si lo vas a usar seguido, guardalo como instrucciones de un Proyecto.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 02 CONTEXTO -->
+<section id="contexto" class="sheet" role="tabpanel" aria-labelledby="tab-contexto" hidden>
+  <div class="sheet-head">
+    <div class="label">Lámina 02 · Ventana de contexto</div>
+    <h2>Cada mensaje nuevo relee toda la conversación</h2>
+    <p>Claude no recuerda “de a poco”: en cada turno vuelve a procesar todo lo que hay en el chat. Por eso un chat eterno consume tu límite cada vez más rápido. Probá los botones y mirá cómo crece el costo de cada turno.</p>
+  </div>
+  <div class="ctx-grid">
+    <div class="panel">
+      <div class="ctl" style="margin-bottom:12px">
+        <button class="btn" id="c-send" type="button">Enviar mensaje</button>
+        <button class="btn" id="c-pdf" type="button">Pegar un PDF de 20 páginas</button>
+        <button class="btn" id="c-fix" type="button">Corregir con mensaje nuevo</button>
+        <button class="btn" id="c-edit" type="button">✎ Editar el último mensaje</button>
+        <button class="btn" id="c-new" type="button">Chat nuevo</button>
+        <button class="btn ghost" id="c-reset" type="button">Reiniciar</button>
+      </div>
+      <div class="label" style="margin-bottom:6px">Lo que Claude tiene a la vista en este chat</div>
+      <div class="window" id="window" aria-live="polite"><p class="empty">Chat vacío. Mandá un mensaje o pegá un documento para empezar.</p></div>
+      <label class="shelf" id="shelf" for="c-proj"><input type="checkbox" id="c-proj" style="accent-color:var(--mint)"><span class="dot"></span><span><b>Guardar el PDF en un Proyecto</b> — se carga una vez y, al reutilizarlo, no vuelve a contar contra tu límite.</span></label>
+    </div>
+    <div class="panel">
+      <div class="stats">
+        <div class="stat"><div class="label">En el chat</div><div class="v" id="s-ctx">0</div><div class="s">tokens a la vista</div></div>
+        <div class="stat"><div class="label">Este turno</div><div class="v" id="s-turn">0</div><div class="s">tokens procesados</div></div>
+        <div class="stat"><div class="label">Sesión</div><div class="v" id="s-total">0</div><div class="s">tokens acumulados</div></div>
+      </div>
+      <div class="budget">
+        <div class="label" style="display:flex;justify-content:space-between"><span>Presupuesto de la sesión (ilustrativo)</span><span id="s-pct">0 %</span></div>
+        <div class="bar"><i id="s-bar"></i></div>
+      </div>
+      <div class="turns" style="margin-top:16px">
+        <div class="label">Costo de cada turno</div>
+        <svg id="turn-chart" viewBox="0 0 400 120" preserveAspectRatio="none" aria-label="Costo por turno"></svg>
+      </div>
+      <p class="note" style="margin-top:8px">Modelo simplificado para la clase: mensaje ≈ 150 tokens, respuesta ≈ 600, PDF de 20 páginas ≈ 12.000. Anthropic no publica cifras exactas del plan gratis; el límite se reinicia cada 5 horas y varía con la demanda.</p>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="out-head">
+      <div><div class="label">Comparación automática · 12 preguntas sobre el mismo PDF</div><h3 style="font-size:24px;font-weight:800;font-stretch:110%;margin-top:6px">Chat eterno vs. método ordenado</h3></div>
+      <button class="btn primary" id="c-compare" type="button">▶ Reproducir comparación</button>
+    </div>
+    <div class="compare-out">
+      <div>
+        <div class="chart-box"><svg id="cmp-chart" viewBox="0 0 640 300" aria-label="Tokens acumulados por turno en ambos métodos"></svg></div>
+        <div class="legend"><span><i style="background:var(--coral)"></i>Chat eterno: PDF pegado, correcciones como mensajes nuevos</span><span><i style="background:var(--mint)"></i>Ordenado: PDF en Proyecto, 3 chats cortos, editar en vez de corregir</span></div>
+      </div>
+      <div>
+        <div class="label">El chat eterno consume</div>
+        <div class="big" id="cmp-x">×?</div>
+        <p style="color:var(--muted);margin-top:6px" id="cmp-txt">más tokens para el mismo trabajo.</p>
+        <ul class="recipe">
+          <li>Un chat por tema. Cuando cambia el tema, chat nuevo.</li>
+          <li>Si la respuesta salió mal, editá tu mensaje (✎) en vez de agregar “no, así no”.</li>
+          <li>Documentos que usás seguido van al Proyecto, no pegados en cada chat.</li>
+          <li>Juntá varias preguntas en un solo mensaje.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 HORAS -->
+<section id="horas" class="sheet" role="tabpanel" aria-labelledby="tab-horas" hidden>
+  <div class="sheet-head">
+    <div class="label">Lámina 03 · Calculadora</div>
+    <h2>¿Cuántas horas por mes te puede devolver Claude?</h2>
+    <p>Las filas de abajo son un ejemplo de emprendimiento chico. Cambiá las tareas, los minutos por semana y el porcentaje que creés que podés delegar. Los porcentajes son supuestos para discutir en clase, no mediciones.</p>
+  </div>
+  <div class="panel">
+    <div class="row-head label"><span>Tarea</span><span>Min / semana</span><span>Parte que hace Claude</span><span style="text-align:right">Ahorro</span><span></span></div>
+    <div class="rows" id="rows" style="margin-top:8px"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center">
+      <button class="btn" id="add-row" type="button">+ Agregar tarea</button>
+      <label for="rate" style="display:flex;gap:10px;align-items:center;margin-left:auto;font-size:15px;color:var(--muted)">Valor de tu hora (ARS)<input type="number" id="rate" value="8000" min="0" step="500" style="width:130px"></label>
+    </div>
+  </div>
+  <div class="panel hours-sum">
+    <div>
+      <div class="label">Tiempo recuperado por mes</div>
+      <div class="big" id="h-month">0 h</div>
+      <p style="color:var(--muted);margin-top:8px" id="h-detail"></p>
+    </div>
+    <div class="hbars" id="hbars"></div>
+  </div>
+</section>
+
+<!-- 04 3D -->
+<section id="taller3d" class="sheet" role="tabpanel" aria-labelledby="tab-3d" hidden>
+  <div class="sheet-head">
+    <div class="label">Lámina 04 · De imagen a objeto</div>
+    <h2>Cómo una foto se convierte en un modelo 3D</h2>
+    <p>Las herramientas gratuitas siguen siempre los mismos pasos: leen la imagen, estiman la profundidad, arman una malla de triángulos, le pintan la textura y la exportan. Recorré el proceso con la taza. Podés girarla arrastrando.</p>
+  </div>
+  <div class="stage-wrap">
+    <div class="panel" style="padding:14px">
+      <div class="viewport" id="viewport"><div class="hud" id="hud">PASO 1 / 5 · IMAGEN</div><div class="files" id="files"><span>taza.glb · web y AR</span><span>taza.stl · impresión</span><span>taza.obj · edición</span></div></div>
+      <div class="steps" id="steps"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn primary" id="play3d" type="button">▶ Reproducir proceso</button>
+        <button class="btn ghost" id="prev3d" type="button">← Anterior</button>
+        <button class="btn ghost" id="next3d" type="button">Siguiente →</button>
+      </div>
+    </div>
+    <div class="panel explain" id="explain" aria-live="polite"></div>
+  </div>
+
+  <div class="panel">
+    <div class="sheet-head" style="margin-bottom:14px">
+      <div class="label">¿Qué herramienta uso?</div>
+      <h3 style="font-size:26px;font-weight:800;font-stretch:115%">Marcá lo que necesitás</h3>
+      <p>Planes gratuitos verificados en octubre de 2026. Cambian seguido: confirmá en la web de cada herramienta antes de la clase.</p>
+    </div>
+    <div class="chips" id="needs"></div>
+    <div class="warn" id="lic-warn" hidden style="margin-top:14px"></div>
+    <div class="tools" id="tools" style="margin-top:16px"></div>
+  </div>
+
+  <div class="panel">
+    <div class="sheet-head" style="margin-bottom:14px">
+      <div class="label">Antes de subir la imagen</div>
+      <h3 style="font-size:26px;font-weight:800;font-stretch:115%">¿Tu imagen está lista para pasar a 3D?</h3>
+    </div>
+    <div class="checks" id="checks"></div>
+    <div class="ready"><div class="bar"><i id="ready-bar"></i></div><b id="ready-txt" style="font-family:var(--display)">0 de 7</b></div>
+    <div style="margin-top:18px">
+      <div class="label">Prompt para generar la imagen de referencia (pegalo en tu generador de imágenes)</div>
+      <pre class="copybox" id="ref-prompt">Fotografía de producto de [TU OBJETO], un solo objeto completo y centrado, vista frontal a 3/4, fondo blanco liso, luz de estudio suave y pareja, sin sombras duras, sin texto, sin otros objetos, alta resolución, nitidez en los bordes.</pre>
+      <button class="btn" id="copy-ref" type="button" style="margin-top:10px">Copiar prompt de imagen</button>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">Material de clase · IA generativa · Datos de planes y herramientas revisados el 22 de octubre de 2026. Los números de tokens y horas son ilustrativos.</div></footer>
+<div class="toast" id="toast" role="status">Copiado</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const fmt = n => Math.round(n).toLocaleString('es-AR');
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1600);}
+function copyText(text, el){
+  const fallback=()=>{ if(!el) return; const r=document.createRange(); r.selectNodeContents(el); const s=getSelection(); s.removeAllRanges(); s.addRange(r); toast('Seleccionado: usá Ctrl+C'); };
+  try{ navigator.clipboard.writeText(text).then(()=>toast('Copiado'),fallback); }catch(e){ fallback(); }
+}
+
+/* ---------- Tabs ---------- */
+const tabs = $$('.tab');
+let shown3d = false;
+function showTab(id){
+  tabs.forEach(t=>{ const on=t.dataset.tab===id; t.setAttribute('aria-selected',on); t.tabIndex=on?0:-1; document.getElementById(t.dataset.tab).hidden=!on; });
+  try{ history.replaceState(null,'','#'+id); }catch(e){}
+  if(id==='taller3d'){ init3d(); }
+  if(id==='contexto'){ drawCompare(false); }
+}
+tabs.forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
+document.querySelector('[role=tablist]').addEventListener('keydown',e=>{
+  if(!['ArrowRight','ArrowLeft'].includes(e.key)) return;
+  const i=tabs.findIndex(t=>t.getAttribute('aria-selected')==='true');
+  const n=tabs[(i+(e.key==='ArrowRight'?1:tabs.length-1))%tabs.length]; n.focus(); showTab(n.dataset.tab);
+});
+
+/* ---------- 01 Prompt builder ---------- */
+const PRESETS = {
+  cliente:{label:'Responder a un cliente',
+    rol:'Sos la persona que atiende los mensajes de "Dulce Ritual", una pastelería artesanal que vende por Instagram y WhatsApp.',
+    contexto:'Una clienta escribió: "Hola! ¿Hacen tortas sin TACC para el sábado? Somos 20. ¿Cuánto sale?".\nDatos reales: torta para 20 porciones $38.000; versión sin TACC +20%; pedidos con 72 h de anticipación; seña del 50% por transferencia.',
+    tarea:'Escribí la respuesta para mandar por WhatsApp.',
+    formato:'Hasta 5 líneas. Tono cálido y cercano, con voseo. Como mucho un emoji. Cerrá con una pregunta que avance la venta.',
+    restr:'No inventes sabores, precios ni fechas que no estén en los datos. Si falta algo, preguntalo.',
+    ejemplo:'¡Hola Caro! Gracias por escribirnos 😊 Sí, hacemos tortas sin TACC. Para 20 porciones sale $45.600. ¿Te la reservo para el sábado?',
+    flags:{preg:false,pensar:false,revisar:true}},
+  instagram:{label:'Calendario de Instagram',
+    rol:'Sos community manager de emprendimientos chicos y sabés escribir para Instagram en español rioplatense.',
+    contexto:'Mi emprendimiento: velas de soja artesanales, aromas de estación. Público: mujeres de 25 a 45 que regalan. Este mes lanzo la línea "Primavera" (jazmín, mandarina, té verde).',
+    tarea:'Armá el calendario de publicaciones de las próximas 2 semanas, 3 posteos por semana.',
+    formato:'Tabla con columnas: fecha, tipo (reel, carrusel o historia), idea, texto del posteo, idea de imagen para generar con IA y 5 hashtags.',
+    restr:'Nada de frases hechas tipo "descubrí la magia". Textos de menos de 60 palabras. No prometas descuentos.',
+    ejemplo:'',
+    flags:{preg:true,pensar:false,revisar:false}},
+  ventas:{label:'Analizar mis ventas',
+    rol:'Sos analista de datos para pequeños comercios. Explicás sin tecnicismos.',
+    contexto:'Te adjunto ventas_2026.xlsx con las columnas: fecha, producto, cantidad, precio unitario, costo unitario.',
+    tarea:'Decime cuáles son los 3 productos que más ganancia dejan, cuál fue el mes más flojo y por qué puede haber pasado, y proponé 3 acciones concretas para el mes que viene.',
+    formato:'Primero un resumen de 5 líneas. Después un gráfico de ganancia por mes. Al final, un Excel nuevo con una hoja de resumen y fórmulas, para que yo pueda actualizarlo.',
+    restr:'Si encontrás datos raros (precios en cero, fechas repetidas), avisame antes de sacar conclusiones.',
+    ejemplo:'',
+    flags:{preg:false,pensar:true,revisar:true}},
+  comidas:{label:'Plan de comidas',
+    rol:'Sos nutricionista práctica y cocinera de casa.',
+    contexto:'Somos 4 (dos adultos, dos chicos de 8 y 11). Tenemos 30 minutos para cocinar por día. Uno de los chicos no come pescado. Presupuesto ajustado.',
+    tarea:'Armá el plan de almuerzos y cenas de lunes a viernes y la lista del súper.',
+    formato:'Tabla por día. Después, la lista del súper agrupada por sector (verdulería, almacén, carnicería, lácteos) con cantidades.',
+    restr:'Aprovechá sobras: que al menos 2 cenas se reutilicen al día siguiente. Nada de ingredientes difíciles de conseguir.',
+    ejemplo:'',
+    flags:{preg:true,pensar:false,revisar:false}},
+  img3d:{label:'Imagen para pasar a 3D',
+    rol:'Sos director de arte especializado en fotografía de producto.',
+    contexto:'Quiero convertir una imagen en un modelo 3D con Hunyuan3D o TRELLIS. Mi marca vende mates pintados a mano; quiero una mascota: un carpincho simpático con un mate.',
+    tarea:'Escribí 3 prompts para un generador de imágenes, en inglés y en español, que den una imagen ideal para convertir a 3D.',
+    formato:'Lista numerada. Cada prompt en un bloque aparte.',
+    restr:'Un solo objeto, completo y centrado, fondo blanco liso, vista a 3/4, luz pareja sin sombras duras, sin texto ni elementos sueltos.',
+    ejemplo:'',
+    flags:{preg:false,pensar:false,revisar:true}}
+};
+const FIELDS = [['rol','rol','Rol'],['contexto','contexto','Contexto'],['tarea','tarea','Tarea'],['formato','formato','Formato'],['restr','restricciones','Restricciones'],['ejemplo','ejemplo','Ejemplo']];
+const presetBox = $('#presets');
+Object.entries(PRESETS).forEach(([k,p],i)=>{
+  const b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=p.label; b.dataset.k=k; b.setAttribute('aria-pressed',i===0);
+  b.addEventListener('click',()=>{ loadPreset(k); $$('#presets .chip').forEach(c=>c.setAttribute('aria-pressed',c===b)); });
+  presetBox.appendChild(b);
+});
+function loadPreset(k){
+  const p=PRESETS[k];
+  FIELDS.forEach(([id])=>{ $('#f-'+id).value=p[id]||''; });
+  $('#t-preg').checked=!!p.flags.preg; $('#t-pensar').checked=!!p.flags.pensar; $('#t-revisar').checked=!!p.flags.revisar;
+  buildPrompt();
+}
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function buildPrompt(){
+  const xml=$('#t-xml').checked; let plain=''; let html='';
+  FIELDS.forEach(([id,tag,name])=>{
+    const v=$('#f-'+id).value.trim(); if(!v) return;
+    if(xml){ plain+=`<${tag}>\n${v}\n</${tag}>\n\n`; html+=`<span class="t">&lt;${tag}&gt;</span>\n${esc(v)}\n<span class="t">&lt;/${tag}&gt;</span>\n\n`; }
+    else { const lab = id==='ejemplo' ? 'Ejemplo de cómo me gusta' : name; plain+=`${lab}: ${v}\n\n`; html+=`<span class="t">${lab}:</span> ${esc(v)}\n\n`; }
+  });
+  const extras=[];
+  if($('#t-preg').checked) extras.push('Antes de empezar, si te falta información importante, haceme hasta 3 preguntas y esperá mis respuestas.');
+  if($('#t-pensar').checked) extras.push('Antes de responder, pensá el problema paso a paso.');
+  if($('#t-revisar').checked) extras.push('Cuando termines, revisá tu respuesta como lo haría un cliente exigente y corregí lo que haga falta antes de entregármela.');
+  extras.forEach(x=>{ plain+=x+'\n'; html+=`<span class="x">${esc(x)}</span>\n`; });
+  $('#prompt-out').innerHTML = html || '<span style="color:var(--dim)">Tu prompt va a aparecer acá.</span>';
+  $('#prompt-out').dataset.plain = plain.trim();
+  scorePrompt();
+}
+function scorePrompt(){
+  const v=id=>$('#f-'+id).value.trim().length;
+  let s=0; const tips=[];
+  const chk=(cond,pts,ok,bad)=>{ if(cond){s+=pts;tips.push(['ok',ok]);} else tips.push(['',bad]); };
+  chk(v('rol')>15,15,'Tiene rol','Decile quién es: “Sos…”');
+  if(v('contexto')>40){s+=25;tips.push(['ok','Contexto con datos concretos']);} else if(v('contexto')>0){s+=10;tips.push(['','El contexto es corto: sumá datos reales (precios, público, situación)']);} else tips.push(['','Falta contexto: es la pieza que más mejora la respuesta']);
+  chk(v('tarea')>10,20,'Tarea clara','Escribí la tarea con un verbo: “Escribí”, “Armá”, “Compará”');
+  chk(v('formato')>10,15,'Formato definido','Decí el formato: largo, tono, tabla o lista');
+  chk(v('restr')>10,10,'Tiene límites','Agregá qué no querés que haga');
+  chk(v('ejemplo')>10,10,'Incluye un ejemplo','Un ejemplo de cómo te gusta vale más que tres adjetivos');
+  if($('#t-preg').checked||$('#t-revisar').checked||$('#t-pensar').checked) s+=5;
+  s=Math.min(100,s);
+  $('#score').textContent=s;
+  const ring=$('#ring'); ring.style.strokeDashoffset = 157 - 157*s/100;
+  ring.style.stroke = s>=80?'#5FE0B4':s>=50?'#FFC857':'#FF7A59';
+  $('#verdict').textContent = s>=85?'Listo para usar':s>=60?'Bien, se puede afinar':s>0?'Le faltan piezas':'Completá las piezas';
+  $('#tips').innerHTML = tips.filter(t=>!t[0]).slice(0,3).concat(tips.filter(t=>t[0]).slice(0, s>=85?3:0)).map(t=>`<li class="${t[0]}">${t[1]}</li>`).join('');
+}
+['f-rol','f-contexto','f-tarea','f-formato','f-restr','f-ejemplo','t-xml','t-preg','t-pensar','t-revisar'].forEach(id=>$('#'+id).addEventListener('input',buildPrompt));
+$('#copy-prompt').addEventListener('click',()=>copyText($('#prompt-out').dataset.plain||'', $('#prompt-out')));
+$('#clear-prompt').addEventListener('click',()=>{ FIELDS.forEach(([id])=>$('#f-'+id).value=''); $$('#presets .chip').forEach(c=>c.setAttribute('aria-pressed',false)); buildPrompt(); $('#f-rol').focus(); });
+loadPreset('cliente');
+
+/* ---------- 02 Context meter ---------- */
+const T={user:150, reply:600, fix:80, pdf:12000};
+const BUDGET=200000;
+let ctx=[], proj={on:false,loaded:false}, total=0, turnCosts=[];
+function ctxSum(){ return ctx.reduce((a,b)=>a+b.t,0); }
+function turn(userTok, kind, label){
+  const projCost = proj.on ? (proj.loaded?0:T.pdf) : 0;
+  if(proj.on) proj.loaded=true;
+  const cost = ctxSum() + projCost + userTok + T.reply;
+  ctx.push({k:kind,t:userTok,l:label}); ctx.push({k:'claude',t:T.reply,l:'Respuesta de Claude'});
+  total+=cost; turnCosts.push(cost); renderCtx(cost);
+}
+function renderCtx(cost){
+  const w=$('#window');
+  if(!ctx.length){ w.innerHTML='<p class="empty">Chat vacío. Mandá un mensaje o pegá un documento para empezar.</p>'; }
+  else {
+    w.innerHTML = ctx.map((b,i)=>`<div class="blk ${b.k}${(cost&&i<ctx.length-1)?' reread':''}"><span>${b.l}</span><span>${fmt(b.t)} tk</span></div>`).join('');
+    w.scrollTop=w.scrollHeight;
+    if(cost) setTimeout(()=>$$('.blk.reread').forEach(e=>e.classList.remove('reread')),700);
+  }
+  $('#s-ctx').textContent=fmt(ctxSum() + (proj.on?T.pdf:0));
+  $('#s-turn').textContent=fmt(cost||0);
+  $('#s-total').textContent=fmt(total);
+  const pct=Math.min(100,total/BUDGET*100);
+  $('#s-pct').textContent=pct.toFixed(0)+' %'; $('#s-bar').style.width=pct+'%';
+  $('#c-edit').disabled = !(ctx.length>=2 && ctx[ctx.length-1].k==='claude' && ctx[ctx.length-2].k!=='pdf');
+  drawTurns();
+}
+function drawTurns(){
+  const svg=$('#turn-chart'); const W=400,H=120,pad=4;
+  if(!turnCosts.length){ svg.innerHTML=`<line x1="0" y1="${H-1}" x2="${W}" y2="${H-1}" stroke="#29507F"/>`; return; }
+  const n=Math.max(turnCosts.length,12), max=Math.max(...turnCosts,20000), bw=(W-pad*2)/n;
+  svg.innerHTML = `<line x1="0" y1="${H-1}" x2="${W}" y2="${H-1}" stroke="#29507F"/>` + turnCosts.map((c,i)=>{
+    const h=Math.max(2,(H-14)*c/max); return `<rect x="${pad+i*bw+2}" y="${H-1-h}" width="${Math.max(2,bw-4)}" height="${h}" fill="${i===turnCosts.length-1?'#FFC857':'#7CC4FF'}" opacity="${i===turnCosts.length-1?1:.6}"/>`;
+  }).join('');
+}
+$('#c-send').addEventListener('click',()=>turn(T.user,'user','Tu pregunta'));
+$('#c-pdf').addEventListener('click',()=>{ ctx.push({k:'pdf',t:T.pdf,l:'PDF pegado (20 páginas)'}); turn(T.user,'user','Pregunta sobre el PDF'); });
+$('#c-fix').addEventListener('click',()=>turn(T.fix,'fix','“No, así no. Hacelo más corto”'));
+$('#c-edit').addEventListener('click',()=>{ if(ctx.length>=2){ ctx.splice(ctx.length-2,2); } turn(T.user,'user','Tu mensaje editado ✎'); });
+$('#c-new').addEventListener('click',()=>{ ctx=[]; renderCtx(0); toast('Chat nuevo: la ventana arranca vacía'); });
+$('#c-reset').addEventListener('click',()=>{ ctx=[]; total=0; turnCosts=[]; proj.loaded=false; renderCtx(0); });
+$('#c-proj').addEventListener('change',e=>{ proj.on=e.target.checked; proj.loaded=false; $('#shelf').classList.toggle('on',proj.on); renderCtx(0); });
+renderCtx(0);
+
+function simulate(plan){
+  let c=[], p={on:plan.project,loaded:false}, acc=0, out=[];
+  plan.steps.forEach(s=>{
+    if(s==='new'){ c=[]; return; }
+    let u=T.user;
+    if(s==='pdf'){ c.push(T.pdf); }
+    if(s==='fix'){ u=T.fix; }
+    if(s==='edit'){ c.splice(c.length-2,2); }
+    const projCost = p.on ? (p.loaded?0:T.pdf) : 0; if(p.on) p.loaded=true;
+    const cost = c.reduce((a,b)=>a+b,0) + projCost + u + T.reply;
+    c.push(u); c.push(T.reply); acc+=cost; out.push(acc);
+  });
+  return out;
+}
+const PLAN_A={project:false, steps:['pdf','q','fix','q','q','fix','q','q','q','fix','q','q']};
+const PLAN_B={project:true,  steps:['q','edit','q','q','new','q','q','edit','q','new','q','q','edit','q'].filter(Boolean)};
+// keep both at 12 answered questions: B has 12 "turn" steps (q/edit) — 'new' only resets
+function drawCompare(animate){
+  const a=simulate(PLAN_A), b=simulate(PLAN_B);
+  const svg=$('#cmp-chart'); const W=640,H=300,L=64,R=16,Tp=16,B=40;
+  const n=Math.max(a.length,b.length), max=Math.max(a[a.length-1],b[b.length-1]);
+  const niceMax=Math.ceil(max/50000)*50000;
+  const x=i=>L+(W-L-R)*(i)/(n-1), y=v=>Tp+(H-Tp-B)*(1-v/niceMax);
+  let g='';
+  for(let v=0; v<=niceMax; v+=50000){ g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(124,196,255,.15)"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#7690B2" font-family="JetBrains Mono, monospace">${v/1000}k</text>`; }
+  for(let i=0;i<n;i++){ g+=`<text x="${x(i)}" y="${H-B+18}" text-anchor="middle" font-size="11" fill="#7690B2" font-family="JetBrains Mono, monospace">${i+1}</text>`; }
+  g+=`<text x="${(L+W-R)/2}" y="${H-6}" text-anchor="middle" font-size="11.5" fill="#A3B8D4" font-family="Atkinson Hyperlegible, sans-serif">pregunta n.º</text>`;
+  const path=arr=>arr.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  g+=`<path id="pa" d="${path(a)}" fill="none" stroke="#FF7A59" stroke-width="3" stroke-linejoin="round"/>`;
+  g+=`<path id="pb" d="${path(b)}" fill="none" stroke="#5FE0B4" stroke-width="3" stroke-linejoin="round"/>`;
+  g+=`<circle cx="${x(a.length-1)}" cy="${y(a[a.length-1])}" r="5" fill="#FF7A59"/><text x="${x(a.length-1)-8}" y="${y(a[a.length-1])-10}" text-anchor="end" font-size="12" fill="#FF7A59" font-family="JetBrains Mono, monospace">${fmt(a[a.length-1])}</text>`;
+  g+=`<circle cx="${x(b.length-1)}" cy="${y(b[b.length-1])}" r="5" fill="#5FE0B4"/><text x="${x(b.length-1)-8}" y="${y(b[b.length-1])-10}" text-anchor="end" font-size="12" fill="#5FE0B4" font-family="JetBrains Mono, monospace">${fmt(b[b.length-1])}</text>`;
+  svg.innerHTML=g;
+  const ratio=a[a.length-1]/b[b.length-1];
+  $('#cmp-txt').textContent=`más tokens para el mismo trabajo (${fmt(a[a.length-1])} contra ${fmt(b[b.length-1])}). Con el mismo límite, el método ordenado te deja trabajar bastante más.`;
+  if(animate && !reduce){
+    ['#pa','#pb'].forEach(id=>{ const p=svg.querySelector(id); const L=p.getTotalLength(); p.style.strokeDasharray=L; p.style.strokeDashoffset=L; p.getBoundingClientRect(); p.style.transition='stroke-dashoffset 2.4s ease-in-out'; p.style.strokeDashoffset=0; });
+    let t0=null; const el=$('#cmp-x');
+    const step=ts=>{ if(!t0)t0=ts; const k=Math.min(1,(ts-t0)/2400); el.textContent='×'+(1+(ratio-1)*k).toFixed(1); if(k<1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  } else { $('#cmp-x').textContent='×'+ratio.toFixed(1); }
+}
+$('#c-compare').addEventListener('click',()=>drawCompare(true));
+drawCompare(false);
+
+/* ---------- 03 Hours ---------- */
+let rows=[
+  {n:'Responder consultas repetidas (WhatsApp, Instagram)',m:300,p:50},
+  {n:'Escribir posteos y textos de productos',m:180,p:60},
+  {n:'Armar presupuestos y cotizaciones',m:120,p:50},
+  {n:'Planillas, cuentas y control de stock',m:120,p:40},
+  {n:'Mails, trámites y reclamos',m:90,p:40},
+  {n:'Plan de comidas y lista del súper',m:60,p:70}
+];
+let rid=0;
+function renderRows(){
+  $('#rows').innerHTML = rows.map((r,i)=>`
+    <div class="row" data-i="${i}">
+      <input type="text" id="r-n-${i}" value="${esc(r.n)}" aria-label="Tarea">
+      <input type="number" id="r-m-${i}" value="${r.m}" min="0" step="10" aria-label="Minutos por semana">
+      <div class="pct"><input type="range" id="r-p-${i}" min="0" max="90" step="5" value="${r.p}" aria-label="Porcentaje que hace Claude"><output id="r-o-${i}">${r.p}%</output></div>
+      <div class="saved" id="r-s-${i}"></div>
+      <button class="x" type="button" aria-label="Quitar tarea" data-del="${i}">×</button>
+    </div>`).join('');
+  calcHours();
+}
+function calcHours(){
+  const rate=+$('#rate').value||0; let wk=0;
+  rows.forEach((r,i)=>{ const s=r.m*r.p/100; wk+=s; const el=$('#r-s-'+i); if(el) el.textContent=(s*4.33/60).toFixed(1).replace('.',',')+' h/mes'; const o=$('#r-o-'+i); if(o) o.textContent=r.p+'%'; });
+  const month=wk*4.33/60;
+  animateNumber($('#h-month'), month, v=>v.toFixed(1).replace('.',',')+' h');
+  const money = new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(month*rate);
+  $('#h-detail').innerHTML = `Son <b>${(wk/60).toFixed(1).replace('.',',')} h por semana</b>, unas <b>${(month/8).toFixed(1).replace('.',',')} jornadas de 8 horas</b> al mes.${rate?` A tu valor hora, equivale a <b>${money}</b> por mes.`:''}`;
+  const max=Math.max(...rows.map(r=>r.m*r.p/100),1);
+  $('#hbars').innerHTML = rows.slice().map((r,i)=>({r,i,s:r.m*r.p/100})).sort((a,b)=>b.s-a.s).map(o=>`<div class="hbar"><span>${esc(o.r.n||'Tarea sin nombre')}</span><span>${(o.s*4.33/60).toFixed(1).replace('.',',')} h</span><div class="track"><i style="width:${(o.s/max*100).toFixed(1)}%"></i></div></div>`).join('');
+}
+function animateNumber(el,to,f){
+  const from=el._v||0; el._v=to; if(reduce){ el.textContent=f(to); return; }
+  const t0=performance.now(); const d=500;
+  const step=ts=>{ const k=Math.min(1,(ts-t0)/d); const e=1-Math.pow(1-k,3); el.textContent=f(from+(to-from)*e); if(k<1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+$('#rows').addEventListener('input',e=>{
+  const row=e.target.closest('.row'); if(!row) return; const i=+row.dataset.i;
+  if(e.target.id.startsWith('r-n-')) rows[i].n=e.target.value;
+  if(e.target.id.startsWith('r-m-')) rows[i].m=Math.max(0,+e.target.value||0);
+  if(e.target.id.startsWith('r-p-')) rows[i].p=+e.target.value;
+  calcHours();
+});
+$('#rows').addEventListener('click',e=>{ const d=e.target.closest('[data-del]'); if(!d) return; rows.splice(+d.dataset.del,1); renderRows(); });
+$('#add-row').addEventListener('click',()=>{ rows.push({n:'Nueva tarea',m:60,p:40}); renderRows(); const i=rows.length-1; const el=$('#r-n-'+i); if(el){ el.focus(); el.select(); } });
+$('#rate').addEventListener('input',calcHours);
+renderRows();
+
+/* ---------- 04 3D ---------- */
+const STAGES=[
+  {k:'IMAGEN', t:'1. La imagen de referencia', p:'Todo empieza con una foto o una imagen generada con IA. Cuanto más limpia (un objeto, fondo liso, luz pareja), mejor sale el modelo. Esta imagen la podés generar con las herramientas que vimos en la clase de imágenes.', tip:'Pedile a Claude que te escriba el prompt de la imagen: rol de director de arte, fondo blanco, vista a 3/4.'},
+  {k:'PROFUNDIDAD', t:'2. Estimación de profundidad', p:'El modelo de IA “adivina” la parte que no se ve: a qué distancia está cada punto y cómo es el reverso. Lo que ves son miles de puntos ubicados en el espacio, coloreados según qué tan cerca están.', tip:'Por eso una vista a 3/4 funciona mejor que una de frente: le da más pistas sobre el volumen.'},
+  {k:'MALLA', t:'3. La malla de triángulos', p:'Los puntos se unen en triángulos y forman la superficie: la malla. Su cantidad de polígonos define el detalle y el peso del archivo. Para web conviene una malla liviana; para imprimir, una cerrada y sin agujeros.', tip:'Si la malla sale con agujeros, Blender (gratis) o Meshy pueden repararla antes de imprimir.'},
+  {k:'TEXTURA', t:'4. Textura y materiales', p:'La IA pinta la superficie a partir de los colores de la imagen y completa la parte de atrás. Las herramientas buenas generan materiales PBR: color, brillo y rugosidad, para que se vea real con cualquier luz.', tip:'Para impresión 3D la textura no importa: lo que vale es la forma.'},
+  {k:'EXPORTAR', t:'5. Exportar y usar', p:'Descargás el archivo según el destino: GLB para la web, redes y realidad aumentada; STL para imprimir; OBJ o FBX para editar en Blender o usar en un juego.', tip:'Claude puede armarte un visor 3D como Artifact para mostrar tu producto girando en una página.'}
+];
+let stage=0, playing=null;
+const stepsEl=$('#steps');
+STAGES.forEach((s,i)=>{ const b=document.createElement('button'); b.type='button'; b.className='step'; b.innerHTML=`<b>0${i+1}</b><span>${s.k.charAt(0)+s.k.slice(1).toLowerCase()}</span>`; b.addEventListener('click',()=>{ stopPlay(); setStage(i); }); stepsEl.appendChild(b); });
+function setStage(i){
+  stage=(i+STAGES.length)%STAGES.length;
+  $$('.step').forEach((b,j)=>b.setAttribute('aria-current',j===stage));
+  const s=STAGES[stage];
+  $('#explain').innerHTML=`<div class="label">Paso ${stage+1} de 5</div><h3 style="margin-top:6px">${s.t}</h3><p>${s.p}</p><p class="tool-tip">${s.tip}</p>`;
+  $('#hud').textContent=`PASO ${stage+1} / 5 · ${s.k}`;
+  $('#files').classList.toggle('show',stage===4);
+}
+function stopPlay(){ if(playing){ clearInterval(playing); playing=null; $('#play3d').textContent='▶ Reproducir proceso'; } }
+$('#play3d').addEventListener('click',()=>{ if(playing){ stopPlay(); return; } setStage(0); $('#play3d').textContent='❚❚ Pausar'; playing=setInterval(()=>{ if(stage===4){ stopPlay(); return; } setStage(stage+1); },3200); });
+$('#prev3d').addEventListener('click',()=>{ stopPlay(); setStage(stage-1); });
+$('#next3d').addEventListener('click',()=>{ stopPlay(); setStage(stage+1); });
+setStage(0);
+
+let three=null;
+function init3d(){
+  if(three) return; const vp=$('#viewport');
+  if(!window.THREE){ vp.insertAdjacentHTML('beforeend','<div class="nogl">No se pudo cargar el visor 3D. Revisá la conexión y recargá la página.</div>'); three={}; return; }
+  let renderer; try{ renderer=new THREE.WebGLRenderer({antialias:true,alpha:true}); }catch(e){ vp.insertAdjacentHTML('beforeend','<div class="nogl">Este navegador no tiene WebGL activo.</div>'); three={}; return; }
+  renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  vp.prepend(renderer.domElement);
+  const scene=new THREE.Scene();
+  const cam=new THREE.PerspectiveCamera(36,4/3,0.1,100); cam.position.set(0,1.25,6.3); cam.lookAt(0,-0.05,0);
+  scene.add(new THREE.HemisphereLight(0xcfe6ff,0x0a1a2f,0.9));
+  const dl=new THREE.DirectionalLight(0xffffff,0.9); dl.position.set(3,4,5); scene.add(dl);
+  const rim=new THREE.DirectionalLight(0x7cc4ff,0.6); rim.position.set(-4,2,-3); scene.add(rim);
+  const group=new THREE.Group(); scene.add(group);
+
+  // Mug profile (radius, height)
+  const prof=[[0,-1],[0.80,-1],[0.9,-0.95],[0.95,-0.7],[0.98,0.2],[1.0,0.85],[1.03,1.0],[0.95,1.02],[0.92,0.88],[0.89,0.2],[0.86,-0.78],[0,-0.84]].map(p=>new THREE.Vector2(p[0],p[1]));
+  const bodyG=new THREE.LatheGeometry(prof,72);
+  const handleG=new THREE.TorusGeometry(0.46,0.11,18,48,Math.PI*1.1);
+  const handleM=new THREE.Matrix4().makeRotationZ(-Math.PI/2-0.16); handleG.applyMatrix4(handleM); handleG.translate(0.92,0.05,0);
+  const solidMat=new THREE.MeshStandardMaterial({color:0xff7a59,roughness:.42,metalness:.04,transparent:true,opacity:0,side:THREE.DoubleSide});
+  const wireMat=new THREE.MeshBasicMaterial({color:0x7cc4ff,wireframe:true,transparent:true,opacity:0,depthWrite:false});
+  const parts=[bodyG,handleG];
+  const solids=[], wires=[];
+  parts.forEach(g=>{ const a=new THREE.Mesh(g,solidMat), b=new THREE.Mesh(g,wireMat); solids.push(a); wires.push(b); group.add(a); group.add(b); });
+
+  // Point cloud sampled on surfaces
+  const N=4200, pos=new Float32Array(N*3), tgt=new Float32Array(N*3), flat=new Float32Array(N*3), col=new Float32Array(N*3);
+  const outer=prof.slice(0,7);
+  function sampleBody(){
+    const seg=Math.floor(Math.random()*(outer.length-1)), t=Math.random();
+    const a=outer[seg], b=outer[seg+1]; const r=a.x+(b.x-a.x)*t, yy=a.y+(b.y-a.y)*t; const th=Math.random()*Math.PI*2;
+    return [Math.sin(th)*r, yy, Math.cos(th)*r];
+  }
+  function sampleHandle(){
+    const u=Math.random()*Math.PI*1.1, v=Math.random()*Math.PI*2; const R=0.46, rr=0.11;
+    let x=(R+rr*Math.cos(v))*Math.cos(u), y=(R+rr*Math.cos(v))*Math.sin(u), z=rr*Math.sin(v);
+    const ang=-Math.PI/2-0.16, c=Math.cos(ang), s=Math.sin(ang); const x2=x*c-y*s, y2=x*s+y*c;
+    return [x2+0.92, y2+0.05, z];
+  }
+  const cNear=new THREE.Color(0xffc857), cFar=new THREE.Color(0x7cc4ff), tmp=new THREE.Color();
+  for(let i=0;i<N;i++){
+    const p = i<N*0.82 ? sampleBody() : sampleHandle();
+    tgt.set(p,i*3); flat.set([p[0],p[1],0],i*3); pos.set([p[0],p[1],0],i*3);
+    tmp.copy(cFar).lerp(cNear,(p[2]+1.1)/2.2); col.set([tmp.r,tmp.g,tmp.b],i*3);
+  }
+  const ptsG=new THREE.BufferGeometry(); ptsG.setAttribute('position',new THREE.BufferAttribute(pos,3)); ptsG.setAttribute('color',new THREE.BufferAttribute(col,3));
+  const ptsMat=new THREE.PointsMaterial({size:0.035,vertexColors:true,transparent:true,opacity:0,depthWrite:false});
+  const points=new THREE.Points(ptsG,ptsMat); group.add(points);
+
+  // Reference image card (canvas texture)
+  const cv=document.createElement('canvas'); cv.width=cv.height=512; const g=cv.getContext('2d');
+  // 1 unit = 142 px, centre of the canvas = origin, so the drawing lines up with the 3D mug
+  const U=142, X=v=>256+v*U, Y=v=>256-v*U;
+  g.fillStyle='#F4F7FB'; g.fillRect(0,0,512,512);
+  const sh=g.createRadialGradient(256,Y(-1.08),10,256,Y(-1.08),170); sh.addColorStop(0,'rgba(20,30,50,.28)'); sh.addColorStop(1,'rgba(20,30,50,0)'); g.fillStyle=sh; g.beginPath(); g.ellipse(256,Y(-1.08),170,22,0,0,Math.PI*2); g.fill();
+  g.lineWidth=30; g.strokeStyle='#E8603F'; g.beginPath(); g.ellipse(X(0.92),Y(0.05),0.46*U,0.5*U,0,-Math.PI/2,Math.PI/2); g.stroke();
+  const body=g.createLinearGradient(X(-1),0,X(1),0); body.addColorStop(0,'#C9472F'); body.addColorStop(.3,'#FF8A6A'); body.addColorStop(.55,'#FF7A59'); body.addColorStop(1,'#B8402A');
+  g.fillStyle=body; g.beginPath();
+  g.moveTo(X(-1.03),Y(1)); g.lineTo(X(1.03),Y(1)); g.lineTo(X(0.98),Y(0.2)); g.lineTo(X(0.95),Y(-0.7)); g.quadraticCurveTo(X(0.92),Y(-1),X(0.8),Y(-1));
+  g.lineTo(X(-0.8),Y(-1)); g.quadraticCurveTo(X(-0.92),Y(-1),X(-0.95),Y(-0.7)); g.lineTo(X(-0.98),Y(0.2)); g.closePath(); g.fill();
+  g.fillStyle='#B8402A'; g.beginPath(); g.ellipse(256,Y(1),1.03*U,20,0,0,Math.PI*2); g.fill();
+  g.fillStyle='#6E2618'; g.beginPath(); g.ellipse(256,Y(1)+1,0.93*U,14,0,0,Math.PI*2); g.fill();
+  g.fillStyle='rgba(255,255,255,.32)'; g.fillRect(X(-0.66),Y(0.8),16,0.12*U+1.4*U);
+  g.strokeStyle='rgba(20,30,50,.12)'; g.lineWidth=2; g.strokeRect(8,8,496,496);
+  g.fillStyle='#5B6B84'; g.font='600 18px JetBrains Mono, monospace'; g.fillText('referencia.png',24,492);
+  const tex=new THREE.CanvasTexture(cv);
+  const card=new THREE.Mesh(new THREE.PlaneGeometry(512/U,512/U),new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:1}));
+  card.position.set(0,0,0.02); scene.add(card);
+
+  const grid=new THREE.GridHelper(6,12,0x7cc4ff,0x29507f); grid.position.y=-1.02; grid.material.transparent=true; grid.material.opacity=0; scene.add(grid);
+
+  const TG=[
+    {img:1,pts:0,morph:0,wire:0,solid:0,grid:0},
+    {img:0,pts:1,morph:1,wire:0,solid:0,grid:.35},
+    {img:0,pts:.22,morph:1,wire:.9,solid:0,grid:.35},
+    {img:0,pts:0,morph:1,wire:0,solid:1,grid:.45},
+    {img:0,pts:0,morph:1,wire:0,solid:1,grid:1}
+  ];
+  const cur={img:1,pts:0,morph:0,wire:0,solid:0,grid:0};
+  let rotY=0, drag=null, vel=0;
+  const cvs=renderer.domElement;
+  cvs.addEventListener('pointerdown',e=>{ drag={x:e.clientX}; cvs.setPointerCapture(e.pointerId); cvs.style.cursor='grabbing'; });
+  cvs.addEventListener('pointermove',e=>{ if(!drag) return; const dx=e.clientX-drag.x; drag.x=e.clientX; rotY+=dx*0.01; vel=dx*0.01; });
+  const end=()=>{ drag=null; cvs.style.cursor='grab'; }; cvs.addEventListener('pointerup',end); cvs.addEventListener('pointercancel',end);
+  function size(){ const r=vp.getBoundingClientRect(); if(!r.width) return; renderer.setSize(r.width,r.height,false); cam.aspect=r.width/r.height; cam.updateProjectionMatrix(); }
+  new ResizeObserver(size).observe(vp); size();
+  const posAttr=ptsG.attributes.position;
+  let last=performance.now();
+  function frame(now){
+    const dt=Math.min(0.05,(now-last)/1000); last=now;
+    const tg=TG[stage]; const k=reduce?1:1-Math.pow(0.02,dt);
+    for(const key in cur){ const sp = key==='morph' ? (reduce?1:1-Math.pow(0.25,dt)) : k; cur[key]+= (tg[key]-cur[key])*sp; }
+    card.material.opacity=cur.img; card.visible=cur.img>0.01;
+    ptsMat.opacity=cur.pts; points.visible=cur.pts>0.01;
+    wireMat.opacity=cur.wire; solidMat.opacity=cur.solid; solidMat.depthWrite=cur.solid>0.6;
+    wires.forEach(m=>m.visible=cur.wire>0.01); solids.forEach(m=>m.visible=cur.solid>0.01);
+    const opaque=cur.solid>0.985; if(solidMat.transparent===opaque){ solidMat.transparent=!opaque; solidMat.needsUpdate=true; }
+    grid.material.opacity=cur.grid*0.5; grid.visible=cur.grid>0.01;
+    const m=cur.morph; const e=m*m*(3-2*m);
+    for(let i=0;i<N*3;i+=3){ posAttr.array[i]=flat[i]; posAttr.array[i+1]=flat[i+1]; posAttr.array[i+2]=tgt[i+2]*e; }
+    posAttr.needsUpdate=true;
+    if(stage===0 && !drag){ rotY+=(0-rotY)*k; }
+    else if(!drag){ vel*=0.94; rotY+= (reduce?0:0.35*dt) + vel*0.2; }
+    group.rotation.y=rotY;
+    renderer.render(scene,cam);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  three={renderer};
+}
+
+/* Tool picker */
+const NEEDS=[['sinregistro','Probar sin registrarme'],['volumen','Muchos intentos por día'],['calidad','La mejor calidad gratis'],['impresion','Imprimirlo en 3D'],['comercial','Usarlo en algo que vendo'],['personaje','Personaje para animar o un juego']];
+const TOOLS=[
+  {n:'Hunyuan3D',by:'Tencent',url:'https://3d.hunyuanglobal.com',gratis:'20 generaciones por día',entrada:'Imagen, texto o boceto',sale:'GLB, OBJ',why:'El más generoso para practicar todos los días. También es código abierto: se puede instalar en una PC con buena placa de video.',s:{volumen:3,calidad:2,impresion:2,comercial:1,personaje:1,sinregistro:0}},
+  {n:'TRELLIS 2',by:'Microsoft',url:'https://huggingface.co/spaces/microsoft/TRELLIS.2',gratis:'Demo en Hugging Face, sin cuenta (cola compartida)',entrada:'Imagen',sale:'GLB',why:'Calidad de punta y de código abierto. La demo gratis trabaja a menor resolución y a veces hay espera.',s:{sinregistro:3,calidad:3,volumen:2,comercial:2,impresion:1,personaje:0}},
+  {n:'Tripo AI',by:'VAST',url:'https://www.tripo3d.ai',gratis:'200 créditos/mes (≈13 modelos), 15 descargas',entrada:'Imagen, varias vistas, texto',sale:'GLB, FBX, OBJ, STL, USD',why:'Muy rápido y con rigging automático para animar personajes. En el plan gratis los modelos son públicos y de uso no comercial.',s:{personaje:3,calidad:2,volumen:1,impresion:1,comercial:0,sinregistro:0}},
+  {n:'Meshy',by:'Meshy AI',url:'https://www.meshy.ai',gratis:'100 créditos/mes',entrada:'Imagen (hasta 4 vistas), texto',sale:'GLB, FBX, OBJ, STL',why:'El más completo para imprimir: exporta STL y repara mallas. Lo que generás gratis sale con licencia CC BY 4.0 (se puede usar citando a Meshy).',s:{impresion:3,comercial:2,calidad:2,personaje:2,volumen:0,sinregistro:0}},
+  {n:'3D AI Studio',by:'3D AI Studio',url:'https://www.3daistudio.com',gratis:'Plan gratis para probar varios motores',entrada:'Imagen, texto',sale:'Según el motor',why:'Junta Meshy, Tripo, Hunyuan y TRELLIS en un mismo lugar: sirve para comparar resultados con la misma imagen.',s:{calidad:2,volumen:1,comercial:1,impresion:1,personaje:1,sinregistro:0}},
+  {n:'AI3DGen',by:'AI3DGen',url:'https://ai3dgen.com',gratis:'Sin registro, versión Lite',entrada:'Imagen',sale:'OBJ, STL, GLB (gratis: malla sin textura)',why:'Para una prueba de 2 minutos sin crear cuenta. La malla sin color alcanza para imprimir una pieza simple.',s:{sinregistro:3,impresion:2,volumen:1,calidad:0,comercial:0,personaje:0}}
+];
+const sel=new Set(['volumen']);
+const needsEl=$('#needs');
+NEEDS.forEach(([k,l])=>{ const b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=l; b.setAttribute('aria-pressed',sel.has(k)); b.addEventListener('click',()=>{ sel.has(k)?sel.delete(k):sel.add(k); b.setAttribute('aria-pressed',sel.has(k)); pick(); }); needsEl.appendChild(b); });
+function pick(){
+  const ranked=TOOLS.map(t=>({t,score:[...sel].reduce((a,k)=>a+(t.s[k]||0),0)+Math.random()*0.01})).sort((a,b)=>b.score-a.score).slice(0,3);
+  $('#tools').innerHTML=ranked.map((o,i)=>`<article class="tool${i===0?' best':''}"><div class="rank">${i===0?'Primera opción':'Alternativa'}</div><h4>${o.t.n} <span style="font-weight:500;color:var(--dim);font-size:14px">· ${o.t.by}</span></h4><dl><dt>Gratis</dt><dd>${o.t.gratis}</dd><dt>Entrada</dt><dd>${o.t.entrada}</dd><dt>Exporta</dt><dd>${o.t.sale}</dd></dl><p class="why">${o.t.why}</p><a href="${o.t.url}" target="_blank" rel="noopener">${o.t.url.replace('https://','')}</a></article>`).join('');
+  const w=$('#lic-warn');
+  if(sel.has('comercial')){ w.hidden=false; w.innerHTML='<b>Ojo con las licencias.</b> En los planes gratis, Tripo es de uso no comercial y Meshy pide atribución (CC BY 4.0). Los modelos de código abierto tienen su propia licencia: Hunyuan3D usa la Tencent Community License. Si vas a vender lo que generás, leé los términos o pasá a un plan pago.'; }
+  else w.hidden=true;
+}
+pick();
+
+/* Reference checklist */
+const CHECKS=['Un solo objeto, nada alrededor','Fondo liso (blanco o gris claro)','El objeto entra completo, sin cortes','Vista frontal a 3/4, no de perfil puro','Luz pareja, sin sombras duras','Sin texto chico, vidrio ni transparencias','Buena resolución (1024 px o más)'];
+$('#checks').innerHTML=CHECKS.map((c,i)=>`<label class="check" for="ck-${i}"><input type="checkbox" id="ck-${i}">${c}</label>`).join('');
+$('#checks').addEventListener('change',()=>{ const n=$$('#checks input:checked').length; $('#ready-bar').style.width=(n/CHECKS.length*100)+'%'; $('#ready-txt').textContent = n===CHECKS.length?'¡Lista para convertir!':`${n} de ${CHECKS.length}`; });
+$('#copy-ref').addEventListener('click',()=>copyText($('#ref-prompt').textContent,$('#ref-prompt')));
+
+/* Initial tab from hash */
+const h=(location.hash||'').replace('#','');
+const map={prompts:'prompts',contexto:'contexto',horas:'horas',taller3d:'taller3d','3d':'taller3d'};
+showTab(map[h]||'prompts');
+})();
+</script>
+
+</body></html>
